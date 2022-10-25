@@ -23,7 +23,8 @@
     "onCommand:spring-boot-dashboard.refresh",
     "onView:spring.apps",
     "onView:spring.beans",
-    "onView:spring.mappings"
+    "onView:spring.mappings",
+    "onView:memory.memoryView"
   ],
   "capabilities": {
     "virtualWorkspaces": false
@@ -60,14 +61,14 @@
         {
           "id": "spring.beans",
           "name": "Beans",
-          "when": "java:serverMode && !spring:actuatorRequired",
+          "when": "java:serverMode",
           "contextualTitle": "Spring",
           "icon": "resources/logo.png"
         },
         {
           "id": "spring.mappings",
           "name": "Endpoint Mappings",
-          "when": "java:serverMode && !spring:actuatorRequired",
+          "when": "java:serverMode",
           "contextualTitle": "Spring",
           "icon": "resources/logo.png"
         },
@@ -77,16 +78,16 @@
           "when": "java:serverMode && spring:actuatorRequired",
           "contextualTitle": "Spring",
           "icon": "resources/logo.png"
+        },
+        {
+          "type": "webview",
+          "id": "memory.memoryView",
+          "when": "java:serverMode && spring.gcPauses:showMode == defined && spring.gcPauses:hasLiveProcess == true",
+          "name": "Memory"
         }
       ]
     },
-    "viewsWelcome": [
-      {
-        "view": "spring.actuatorGuide",
-        "contents": "%viewsWelcome.noActuator%",
-        "when": "spring:actuatorRequired"
-      }
-    ],
+    "viewsWelcome": [],
     "commands": [
       {
         "command": "spring-boot-dashboard.refresh",
@@ -213,6 +214,12 @@
         "title": "Show Bean Hierarchy",
         "category": "Spring Boot Dashboard",
         "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "spring.promptToEnableActuator",
+        "title": "Live Information Unavailable",
+        "category": "Spring Boot Dashboard",
+        "icon": "$(warning)"
       }
     ],
     "menus": {
@@ -271,6 +278,10 @@
         },
         {
           "command": "spring.dashboard.bean.showInjectedInto",
+          "when": "never"
+        },
+        {
+          "command": "spring.promptToEnableActuator",
           "when": "never"
         }
       ],
@@ -389,12 +400,22 @@
         },
         {
           "command": "spring.staticData.refresh",
-          "when": "view == spring.beans && viewItem == bootApp",
+          "when": "view == spring.beans && viewItem =~ /^bootApp/",
+          "group": "inline@5"
+        },
+        {
+          "command": "spring.promptToEnableActuator",
+          "when": "view == spring.beans && viewItem =~ /^bootApp(?=.*?\\b\\+noActuator\\b)(?=.*?\\b\\+running\\b)/",
           "group": "inline@5"
         },
         {
           "command": "spring.staticData.refresh",
-          "when": "view == spring.mappings && viewItem == bootApp",
+          "when": "view == spring.mappings && viewItem =~ /^bootApp/",
+          "group": "inline@5"
+        },
+        {
+          "command": "spring.promptToEnableActuator",
+          "when": "view == spring.mappings && viewItem =~ /^bootApp(?=.*?\\b\\+noActuator\\b)(?=.*?\\b\\+running\\b)/",
           "group": "inline@5"
         },
         {
@@ -455,6 +476,7 @@
     "update-tpn": "node scripts/update-third-party-notice.js"
   },
   "devDependencies": {
+    "@types/d3": "^7.1.0",
     "@types/glob": "^7.2.0",
     "@types/lodash": "^4.14.186",
     "@types/mocha": "^9.1.1",
@@ -473,8 +495,13 @@
   ],
   "dependencies": {
     "@pivotal-tools/jvm-launch-utils": "0.0.11",
+    "@vscode/webview-ui-toolkit": "^1.0.0",
+    "chart.js": "^3.9.1",
+    "chartjs": "^0.3.24",
+    "chartjs-adapter-moment": "^1.0.0",
     "get-port": "^5.1.1",
     "lodash": "^4.17.21",
+    "moment": "^2.29.4",
     "pidtree": "^0.5.0",
     "uuid": "^3.4.0",
     "vscode-extension-telemetry-wrapper": "^0.13.2",
