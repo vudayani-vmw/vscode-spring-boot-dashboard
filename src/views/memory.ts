@@ -47,7 +47,7 @@ class MemoryProvider implements WebviewViewProvider{
     private _extensionUrl: vscode.Uri;
 
     constructor() {
-        vscode.commands.executeCommand("setContext", "spring.gcPauses:showMode", "defined");
+        vscode.commands.executeCommand("setContext", "spring.memoryGraphs:showMode", "defined");
     }
 
     public get extensionUrl() {
@@ -60,7 +60,7 @@ class MemoryProvider implements WebviewViewProvider{
 
     public resolveWebviewView(
         webviewView: WebviewView,
-        context: WebviewViewResolveContext,
+        _context: WebviewViewResolveContext,
         _token: CancellationToken
       ) {
 
@@ -72,13 +72,10 @@ class MemoryProvider implements WebviewViewProvider{
         };
         // Set the HTML content that will fill the webview view
         webviewView.webview.html = this._getWebviewContent(webviewView.webview, this._extensionUrl);
-    
         // Sets up an event listener to listen for messages passed from the webview view context
         // and executes code based on the message that is recieved
         this._setWebviewMessageListener(webviewView);
 
-        // add live process to dropdown
-        this.addLiveProcess(this.liveProcessList.values().next().value);
       }
 
       /**
@@ -102,15 +99,14 @@ class MemoryProvider implements WebviewViewProvider{
           "dist",
           "toolkit.js",
         ]);
-        const mainUri = getUri(webview, extensionUri, ["src","webview-ui", "main.js"]);
-        const stylesUri = getUri(webview, extensionUri, ["src","webview-ui", "styles.css"]);
-        const graphLibPath = getUri(webview, extensionUri, ["node_modules","d3","dist","d3.js"]);
+        const mainUri = getUri(webview, extensionUri, ["resources","webview-ui", "main.js"]);
+        const stylesUri = getUri(webview, extensionUri, ["resources","webview-ui", "styles.css"]);
         const chartLibPath = getUri(webview, extensionUri, ["node_modules","chart.js","dist","chart.min.js"]);
         const chartjsPath = getUri(webview, extensionUri, ["node_modules","chartjs","chart.js"]);
-        const chartjsAdapter = getUri(webview, extensionUri, ["node_modules","chartjs-adapter-moment","dist","chartjs-adapter-moment.min.js"]);
-        const chartjsAdapter1 = getUri(webview, extensionUri, ["node_modules","chartjs-adapter-moment","dist","chartjs-adapter-moment.js"]);
+        const chartjsAdapterPath = getUri(webview, extensionUri, ["node_modules","chartjs-adapter-moment","dist","chartjs-adapter-moment.min.js"]);
+        const chartjsAdapterScipt = getUri(webview, extensionUri, ["node_modules","chartjs-adapter-moment","dist","chartjs-adapter-moment.js"]);
         const momentLibPath = getUri(webview, extensionUri, ["node_modules","moment","moment.js"]);
-    
+
         // Tip: Install the es6-string-html VS Code extension to enable code highlighting below
         return /*html*/ `
                 <!DOCTYPE html>
@@ -121,11 +117,10 @@ class MemoryProvider implements WebviewViewProvider{
                         ${this.generateContentSecurityPolicy()}
                         <script type="module" src="${toolkitUri}"></script>
                         <script type="module" src="${mainUri}"></script>
-                        <script src="${graphLibPath}"></script>
                         <script src="${chartLibPath}"></script>
                         <script src="${chartjsPath}"></script>
-                        <script src="${chartjsAdapter}"></script>
-                        <script src="${chartjsAdapter1}"></script>
+                        <script src="${chartjsAdapterPath}"></script>
+                        <script src="${chartjsAdapterScipt}"></script>
                         <script src="${momentLibPath}"></script>
                         <link rel="stylesheet" href="${stylesUri}">
                         <title>Weather Checker</title>
@@ -150,7 +145,6 @@ class MemoryProvider implements WebviewViewProvider{
             </html>
             `;
       }
-    
       private _setWebviewMessageListener(webviewView: WebviewView) {
         webviewView.webview.onDidReceiveMessage(async (message) => {
           const command = message.command;
@@ -159,12 +153,17 @@ class MemoryProvider implements WebviewViewProvider{
             case "Refresh":
               const type = message.type;
               const tag = message.tag;
-              await stsApi.refreshLiveProcessMetricsData({
-                processKey: processKey,
-                endpoint: "metrics",
-                metricName: type,
-                tags: tag
-              });
+              if(processKey !== '' && processKey !== undefined){
+                await stsApi.refreshLiveProcessMetricsData({
+                  processKey: processKey,
+                  endpoint: "metrics",
+                  metricName: type,
+                  tags: tag
+                });
+              }
+              break;
+            case "LoadProcess":
+              this.addLiveProcess(Array.from(this.liveProcessList.values()));
               break;
             default:
           }
@@ -184,7 +183,7 @@ class MemoryProvider implements WebviewViewProvider{
       if (this._view) {
         this._view.webview.postMessage({
           command: "displayProcess",
-          process: JSON.stringify(liveProcess),
+          process: liveProcess,
         });
       }
 	  }
@@ -200,7 +199,6 @@ class MemoryProvider implements WebviewViewProvider{
       if(this.liveProcessList.get(process.processKey)) {
         this.liveProcessList.delete(process.processKey);
         if (this._view) {
-          this._view.show?.(true); // `show` is not implemented in 1.49 but is for 1.50 insiders
           this._view.webview.postMessage({
             command: "removeProcess",
             process: JSON.stringify(process),
